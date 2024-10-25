@@ -1,0 +1,38 @@
+name: MySQL Backup to S3
+
+on:
+  schedule:
+    - cron: '0 20 * * *'  # Runs daily at 8 PM UTC
+  workflow_dispatch:  # Allows manual trigger of the workflow
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up MySQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-server
+          sudo service mysql start
+          mysql -e "CREATE DATABASE mydatabase;"  # Create your database
+          mysql -e "CREATE USER 'backupuser'@'localhost' IDENTIFIED BY 'yourpassword';"
+          mysql -e "GRANT ALL PRIVILEGES ON mydatabase.* TO 'backupuser'@'localhost';"
+
+      - name: Backup MySQL Database
+        run: |
+          mysqldump -u backupuser -pyourpassword mydatabase > backup.sql
+
+      - name: Upload Backup to S3
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --acl public-read --follow-symlinks
+          bucket: ${{ secrets.S3_BUCKET }}  # Your S3 bucket name
+          region: ${{ secrets.S3_REGION }}  # Your S3 region
+          source_dir: ./backup.sql  # Path to backup file
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS Access Key
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS Secret Access Key
