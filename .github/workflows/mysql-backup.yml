@@ -46,5 +46,5 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          aws s3 cp backup.sql s3://your-s3-bucket-name/backups/backup.sql
+          aws s3 cp backup.sql s3://zun069/backups/backup.sql
         shell: bash
