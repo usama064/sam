@@ -28,10 +28,16 @@ jobs:
         mysqldump -u myuser -pmypassword --all-databases > backup.sql
       shell: bash
 
+    - name: Install AWS CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y awscli
+      shell: bash
+
     - name: Upload Backup to S3
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
-        aws s3 cp backup.sql s3://your-s3-bucket-name/backup.sql
+        aws s3 cp backup.sql s3://your-s3-bucket-name/backups/backup.sql
       shell: bash
