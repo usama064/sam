@@ -2,37 +2,36 @@ name: MySQL Backup to S3
 
 on:
   schedule:
-    - cron: '0 20 * * *'  # Runs daily at 8 PM UTC
-  workflow_dispatch:  # Allows manual trigger of the workflow
+    - cron: '0 20 * * *'  # Daily at 8 PM UTC
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - name: Set up MySQL
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-server
 
-      - name: Set up MySQL
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mysql-server
-          sudo service mysql start
-          mysql -e "CREATE DATABASE mydatabase;"  # Create your database
-          mysql -e "CREATE USER 'backupuser'@'localhost' IDENTIFIED BY 'yourpassword';"
-          mysql -e "GRANT ALL PRIVILEGES ON mydatabase.* TO 'backupuser'@'localhost';"
+    - name: Start MySQL Service
+      run: sudo service mysql start
 
-      - name: Backup MySQL Database
-        run: |
-          mysqldump -u backupuser -pyourpassword mydatabase > backup.sql
+    - name: Create MySQL User and Grant Privileges
+      run: |
+        sudo mysql -e "CREATE USER IF NOT EXISTS 'myuser'@'localhost' IDENTIFIED BY 'mypassword';"
+        sudo mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost' WITH GRANT OPTION;"
+        sudo mysql -e "FLUSH PRIVILEGES;"
 
-      - name: Upload Backup to S3
-        uses: jakejarvis/s3-sync-action@master
-        with:
-          args: --acl public-read --follow-symlinks
-          bucket: ${{ secrets.S3_BUCKET }}  # Your S3 bucket name
-          region: ${{ secrets.S3_REGION }}  # Your S3 region
-          source_dir: ./backup.sql  # Path to backup file
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS Access Key
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS Secret Access Key
+    - name: Backup MySQL Database
+      run: |
+        mysqldump -u myuser -pmypassword --all-databases > backup.sql
+      shell: bash
+
+    - name: Upload Backup to S3
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        aws s3 cp backup.sql s3://your-s3-bucket-name/backup.sql
+      shell: bash
