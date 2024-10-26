@@ -9,43 +9,36 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-    - name: Set up MySQL
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mysql-server
+      - name: Set up MySQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-server
+          
+      - name: Start MySQL Service
+        run: sudo service mysql start
 
-    - name: Start MySQL Service
-      run: sudo service mysql start
+      - name: Set Root Password and Create User
+        run: |
+          sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'rootpassword';"
+          sudo mysql -u root -prootpassword -e "CREATE USER IF NOT EXISTS 'myuser'@'localhost' IDENTIFIED BY 'mypassword';"
+          sudo mysql -u root -prootpassword -e "GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost' WITH GRANT OPTION;"
+          sudo mysql -u root -prootpassword -e "FLUSH PRIVILEGES;"
+          
+      - name: Backup MySQL Database
+        run: |
+          mysqldump -u myuser -pmypassword --all-databases > backup.sql
+        shell: bash
 
-    - name: Create MySQL User and Grant Privileges
-      run: |
-        sudo mysql -e "CREATE USER IF NOT EXISTS 'myuser'@'localhost' IDENTIFIED BY 'mypassword';"
-        sudo mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost' WITH GRANT OPTION;"
-        sudo mysql -e "FLUSH PRIVILEGES;"
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
+        shell: bash
 
-    - name: Backup MySQL Database
-      run: |
-        mysqldump -u myuser -pmypassword --all-databases > backup.sql
-      shell: bash
-
-    - name: Install AWS CLI
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y awscli
-      shell: bash
-
-    - name: Upload Backup to S3
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      run: |
-        aws s3 cp backup.sql s3://your-s3-bucket-name/backups/backup.sql
-      shell: bash
-- name: Set Root Password and Create User
-  run: |
-    sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'rootpassword';"
-    sudo mysql -u root -prootpassword -e "CREATE USER IF NOT EXISTS 'myuser'@'localhost' IDENTIFIED BY 'mypassword';"
-    sudo mysql -u root -prootpassword -e "GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost' WITH GRANT OPTION;"
-    sudo mysql -u root -prootpassword -e "FLUSH PRIVILEGES;"
-- name: Install AWS CLI
-  run: sudo apt-get install -y awscli
+      - name: Upload Backup to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 cp backup.sql s3://your-s3-bucket-name/backups/backup.sql
+        shell: bash
